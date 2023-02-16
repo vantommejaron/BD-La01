@@ -1,5 +1,16 @@
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddValidatorsFromAssemblyContaining<WineValidator>();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new() { Title = "Wine API", Version = "v1" });
+    c.CustomSchemaIds(x => x.FullName);
+});
+
 var app = builder.Build();
+app.MapSwagger();
+app.UseSwaggerUI();
+
 
 // ------------------------
 // Make a list with wines
@@ -47,10 +58,17 @@ app.MapDelete("/wine/{wineId}", (int wineId) =>
 // ------------------------
 // ADD a wine
 // ------------------------
-app.MapPost("/wines", (Wine wine) =>
+app.MapPost("/wines", (IValidator<Wine> validator, Wine wine) =>
 {
+    var result = validator.Validate(wine);
+    if (!result.IsValid)
+    {
+        return Results.BadRequest(result.Errors);
+    }
+    
     // this makes a id for the wine
     wine.WineId = wines.Max(w => w.WineId) + 1;
+
     wines.Add(wine);
     return Results.Created($"/wine/{wine.WineId}", wine);
 });
